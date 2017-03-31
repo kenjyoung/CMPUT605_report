@@ -24,6 +24,28 @@ let $Q(S,A)$ be our win probability (or action value) estimate for each action $
 $$Q(S_t,A_t)\leftsquigarrow 1-\max_A Q(S_{t+1},A)$$
 In order to iteratively improve the estimated action values. Notice that if the game were stochastic and $Q(S_t,A_t)$ was equal to the true win probability, this update would be at a fixed point hence in case of stochastic games it makes some sense to say that $Q(S_t,A_t)$ is our estimate of the true winning probability of each move. Hex on the other hand is deterministic so each move has a true win probability of either 1 or 0, hence it is perhaps less clear what intermediate values of $Q(S_t,A_t)$ imply, however it can be roughly thought of as our degree of belief about the state being a win.
 
+Given this interpretation we suggest an alternative update rule that makes this idea somewhat more explicit, and which will allow us to formulate the concept of state value variance reduction resulting from each particular move. Our new update rule assumes each move independently has a true value of either a win or a loss and therefore to do one step backups we look at the joint probability over the next state's moves as follows:
+$$Q(S_t,A_t)\leftsquigarrow \prod_A 1-Q(S_{t+1},A)$$
+i.e. the probability that the last move was a win should be the joint probability that every move in the resulting state is a loss for the opponent.
+
+With this new formulation in mind we can get a state win probability as the probability that any move in the state is a win (i.e. not every move is a loss):
+$$V(S_t)=1-\prod_A 1-Q(S_t,A)$$
+Furthermore we can formulate the variance in this state win probability and attempt to choose moves which seek to reduce this variance using a tree backup of a maximally variance reducing rollout to the end of the game. The state value variance is given by:
+$$\prod_A Q(S_t,A)-\prod_A Q(S_t,A)^2$$
+Or notion of optimal exploration is as follows: we wish to follow some sequence of actions to the end of the game such that if we perform full backups of the form $Q(S_t,A_t)\leftarrow \prod_A 1-Q(S_{t+1},A)$ the reduction in the variance of out current state value estimate $\prod_A Q(S_t,A)-\prod_A Q(S_t,A)^2$ will be maximal. To simplify the problem and allow us to learn an estimate of expected variance reduction via one step backups we make the assumption that the expected change in $Q(S_t,A)$ resulting from taking action A and then following this procedure is 0. This is quite hand-wavy and perhaps ill-motivated, however it makes some sense in light of the fact that if we were to attempt to learn this change using the same model we use to learn $Q(S_t,A)$ itself, we would expect it to quickly converge to 0 simply because the model is already attempting to learn $Q(S_t,A)$ via one step backups. If we \textit{could} learn the expectation of this change was something other than 0 we could simply add this expectation to the current value estimate in order to generate a more accurate estimate without actually performing the lookahead.
+
+With this assumption then our task remains to estimate the change in $\prod_A Q(S_t,A)^2$ along a sequence of actions aiming to maximize this change. More concretely, call this quantity:
+$$\Delta \sigma(S_t) = \max_{A_1}E[\max_{A_2}E[\max_{A_3}...(\prod_A Q(S_t,A)^2-\prod_A Q_{new}(S_t,A)^2)...]]$$
+where $Q_{new}(S_t,A)$ represents the new value $Q(S_t,A)$ after backing up along the followed action sequence $(A_1,A_2,...)$. Now note that:
+\begin{align*}
+Q_{new}(S_t,A) &=Q(S_t,A) \text{ for } A\neq A_1\\
+Q_{new}(S_t,A_1) &=\prod_A 1-Q_{new}(S_{t+1},A)\\
+Q_{new}(S_t,A_1)^2&=\prod_A 1-2Q_{new}(S_{t+1},A)+Q_{new}(S_{t+1},A)^2\\
+\end{align*}
+\begin{align*}
+\Delta \sigma(S_t) = \max_{A_1}E[\max_{A_2}E[\max_{A_3}...(\prod_A Q(S_t,A)^2-\prod_A Q_{new}(S_t,A)^2)...]]
+\end{align*}
+
 
 
 \section*{Pseudocount Exploration}
