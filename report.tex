@@ -34,17 +34,29 @@ Furthermore we can formulate the variance in this state win probability and atte
 $$\prod_A Q(S_t,A)-\prod_A Q(S_t,A)^2$$
 Or notion of optimal exploration is as follows: we wish to follow some sequence of actions to the end of the game such that if we perform full backups of the form $Q(S_t,A_t)\leftarrow \prod_A 1-Q(S_{t+1},A)$ the reduction in the variance of out current state value estimate $\prod_A Q(S_t,A)-\prod_A Q(S_t,A)^2$ will be maximal. To simplify the problem and allow us to learn an estimate of expected variance reduction via one step backups we make the assumption that the expected change in $Q(S_t,A)$ resulting from taking action A and then following this procedure is 0. This is quite hand-wavy and perhaps ill-motivated, however it makes some sense in light of the fact that if we were to attempt to learn this change using the same model we use to learn $Q(S_t,A)$ itself, we would expect it to quickly converge to 0 simply because the model is already attempting to learn $Q(S_t,A)$ via one step backups. If we \textit{could} learn the expectation of this change was something other than 0 we could simply add this expectation to the current value estimate in order to generate a more accurate estimate without actually performing the lookahead.
 
-With this assumption then our task remains to estimate the change in $\prod_A Q(S_t,A)^2$ along a sequence of actions aiming to maximize this change. More concretely, call this quantity:
-$$\Delta \sigma(S_t) = \max_{A_1}E[\max_{A_2}E[\max_{A_3}...(\prod_A Q(S_t,A)^2-\prod_A Q_{new}(S_t,A)^2)...]]$$
-where $Q_{new}(S_t,A)$ represents the new value $Q(S_t,A)$ after backing up along the followed action sequence $(A_1,A_2,...)$. Now note that:
+With this assumption then our task remains to estimate the change in $Q(S_t,A)^2$ along a sequence of actions aiming to maximize this change. More concretely, call this quantity:
+$$\Delta \sigma(S_t,A_t) = E[\max_{A_{t+1}}E[\max_{A_{t+2}}...(Q(S_t,A_t)^2-\prod_A Q_{new}(S_t,A_t)^2)...]]$$
+where $Q_{new}(S_t,A)$ represents the new value $Q(S_t,A)$ after backing up along the followed action sequence $(A_t,A_{t+1},...)$. Now note that:
 \begin{align*}
 Q_{new}(S_t,A) &=Q(S_t,A) \text{ for } A\neq A_1\\
-Q_{new}(S_t,A_1) &=\prod_A 1-Q_{new}(S_{t+1},A)\\
-Q_{new}(S_t,A_1)^2&=\prod_A 1-2Q_{new}(S_{t+1},A)+Q_{new}(S_{t+1},A)^2\\
+Q_{new}(S_t,A_t) &=\prod_A 1-Q_{new}(S_{t+1},A)\\
+Q_{new}(S_t,A_t)^2&=\prod_A 1-2Q_{new}(S_{t+1},A)+Q_{new}(S_{t+1},A)^2\\
 \end{align*}
 \begin{align*}
-\Delta \sigma(S_t) = \max_{A_1}E[\max_{A_2}E[\max_{A_3}...(\prod_A Q(S_t,A)^2-\prod_A Q_{new}(S_t,A)^2)...]]
+\Delta \sigma(S_t,A_t) &= E[\max_{A_{t+1}}E[\max_{A_{t+2}}...( Q(S_t,A_t)^2- Q_{new}(S_t,A_t)^2)...]]\\
+&=E[\max_{A_{t+1}}E[\max_{A_{t+2}}...((Q(S_t,A_t)^2-(\prod_{A} (1-Q(S_{t+1},A))^2+(\prod_{A} (1-Q(S_{t+1},A))^2-Q_{new}(S_t,A_t)^2)...]]\\
+\intertext{using our assumption that $E[Q_{new}(S_t,A_t)]=Q(S_t,A_t)$ and the expansion of $Q_{new}(S_t,A_t)^2$ noted above... }
+&=E[\max_{A_{t+1}}E[\max_{A_{t+2}}...(Q(S_t,A_t)^2-\prod_{A} (1-Q(S_{t+1},A))^2+\prod_{A\neq{A_{t+1}}} (1-Q(S_{t+1},A))^2(Q(S_{t+1},A_{t+1})^2-Q_{new}(S_{t+1},A_{t+1})^2)...]]\\
+&=E[\max_{A_{t+1}}E[\max_{A_{t+2}}...(Q(S_t,A_t)^2-\prod_{A} (1-Q(S_{t+1},A))^2+\prod_{A\neq{A_{t+1}}} (1-Q(S_{t+1},A))^2\Delta \sigma(S_{t+1},A_{t+1}))...]]\\
+&=E[(Q(S_t,A_t)^2-\prod_{A} (1-Q(S_{t+1},A))^2+\max_{A_{t+1}}\prod_{A\neq{A_{t+1}}} (1-Q(S_{t+1},A))^2\Delta \sigma(S_{t+1},A_{t+1}))]
 \end{align*}
+We have derived a recursive formula which we can now use to specify the following update rule for an exploration score network:
+$$Q_{exp}(S_t,A_t)\leftsquigarrow Q(S_t,A_t)^2-\prod_{A'} (1-Q(S_{t+1},A'))^2+\max_A\prod_{A'\neq A} (1-Q(S_{t+1},A'))^2Q_{eAxp}(S_{t+1},A)$$
+And we can define an "exploration greedy action selection" by noting that our goal in choosing actions should be to reduce the variance in the current state value estimate by as much as possible:
+$$A_t= \text{argmax}_A\prod_{A'\neq A}(1-Q(S_t,A))^2Q_{exp}(S_t,A)$$
+During training the idea was to select actions using an epsilon greedy version of this metric while simultaneously updating both the $Q$ and $Q_{exp}$ networks which would share some number of lower layers. 
+
+This was attempted, however the joint distribution based update rule for $Q$ was not found to be feasible for learning and hence there was no real opportunity to even test the $Q_{exp} network, which relies on $Q$. 
 
 
 
