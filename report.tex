@@ -9,7 +9,6 @@
 \usepackage{enumerate}
 \usepackage{xspace}
 \usepackage{txfonts}
-\usepackage[citestyle=numeric]{biblatex}
 \begin{document}
 \begin{center}
 {\Large \textbf{CMPUT 605: Exploring Methods for Guiding Exploration in Learning to Play Hex}}
@@ -54,11 +53,11 @@ Q_{new}(S_t,A_t)^2&=\prod_A 1-2Q_{new}(S_{t+1},A)+Q_{new}(S_{t+1},A)^2\\
 \end{align*}
 We have derived a recursive formula which we can now use to specify the following update rule for an exploration score network:
 $$Q_{exp}(S_t,A_t)\leftsquigarrow Q(S_t,A_t)^2-\prod_{A'} (1-Q(S_{t+1},A'))^2+\max_A\prod_{A'\neq A} (1-Q(S_{t+1},A'))^2Q_{eAxp}(S_{t+1},A)$$
-And we can define an "exploration greedy action selection" by noting that our goal in choosing actions should be to reduce the variance in the current state value estimate by as much as possible:
+And we can define an ``exploration greedy action selection'' by noting that our goal in choosing actions should be to reduce the variance in the current state value estimate by as much as possible:
 $$A_t= \text{argmax}_A\prod_{A'\neq A}(1-Q(S_t,A))^2Q_{exp}(S_t,A)$$
 During training the idea was to select actions using an epsilon greedy version of this metric while simultaneously updating both the $Q$ and $Q_{exp}$ networks which would share some number of lower layers. 
 
-This was attempted, however the joint distribution based update rule for $Q$ was not found to be feasible for learning on reasonable sized boards and hence there was no real opportunity to even test the $Q_{exp}$ network, which relies on $Q$.  Testing on 5x5 showed that the backup method could learn to some degree as shown in figure \cite{5x5}. However even on 5x5 it was still qualitatively outperformed by ordinary Q-Learning and performance degraded very rapidly when scaling to larger boards. For these reasons we did not bother to proceed with more rigorous testing of this method at this time. The reason for the failure appears to be simply that the method gets quickly lost in noise, and on larger boards more moves means there is far more noise to get lost in. The backup rule is essentially very pessimistic because if there are a large number of moves with even a small winning chance in the next state it will conclude that a loss is likely because the opponent has so many possible wins. This issue could potentially be remedied with more sophisticated statistical techniques and may be worth examining further in the future.
+This was attempted, however the joint distribution based update rule for $Q$ was not found to be feasible for learning on reasonable sized boards and hence there was no real opportunity to even test the $Q_{exp}$ network, which relies on $Q$.  Testing on 5x5 showed that the backup method could learn to some degree as shown in figure \ref{5x5}. However even on 5x5 it was still qualitatively outperformed by ordinary Q-Learning and performance degraded very rapidly when scaling to larger boards. For these reasons we did not bother to proceed with more rigorous testing of this method at this time. The reason for the failure appears to be simply that the method gets quickly lost in noise, and on larger boards more moves means there is far more noise to get lost in. The backup rule is essentially very pessimistic because if there are a large number of moves with even a small winning chance in the next state it will conclude that a loss is likely because the opponent has so many possible wins. This issue could potentially be remedied with more sophisticated statistical techniques and may be worth examining further in the future.
 \begin{figure}[!ht]
 \centering
 \begin{subfigure}[t]{.45\textwidth}
@@ -79,7 +78,7 @@ This was attempted, however the joint distribution based update rule for $Q$ was
 
 
 \section*{Pseudocount Exploration}
-We also experimented with a second method for guiding exploration in Hex called pseudocount exploration, as highlighted in \cite{pseudocounts}. This method requires a learned model of probability for each experienced state which satisfies certain constraints outlined in \cite{pseudocounts}. Here we closely follow \cite{pseudocounts} and make use of the same Skip Context Tree Switching \cite{SCTS} model used there, in particular we make use of the python code available at \cite{SCTS_code}. This probability model is used to defined a "pseudocount" by analogy with the ordinary notion of count, which is itself associated with the empirical probabilities (i.e. visitation count for state s over total visitation count for all states).
+We also experimented with a second method for guiding exploration in Hex called pseudocount exploration, as highlighted in \cite{pseudocounts}. This method requires a learned model of probability for each experienced state which satisfies certain constraints outlined in \cite{pseudocounts}. Here we closely follow \cite{pseudocounts} and make use of the same Skip Context Tree Switching \cite{SCTS} model used there, in particular we make use of the python code available at \cite{SCTS_code}. This probability model is used to defined a ``pseudocount'' by analogy with the ordinary notion of count, which is itself associated with the empirical probabilities (i.e. visitation count for state s over total visitation count for all states).
 
 We will now briefly discuss the notion of pseudocount and its motivation. Suppose we postulate (by analogy with ordinary count and total for the empirical distribution) for some arbitrary state probability model the existence of an associated pseudocount $N(x)$ and pseudocount total $n$. Note that for the empirical distribution the probabilities before and after visiting a state (say $p$ and $p'$) are related by:
 $$p(x)=\frac{N(x)}{n},\ \ p'(x)=\frac{N(x)+1}{n+1}$$
@@ -102,7 +101,7 @@ The solver information was more difficult to use because we did not want the lea
 This method was also tested on the 7x7 board and surprisingly also did not yield any clear improvement over 100,000 training episodes. Since both the must play and solver were integrated and tested together it is currently hard to say whether each of them may have been more effective individually. It is conceivable that integrating the must-play could have hurt performance since the pruned moves would end up being rarely played and may therefore have very inaccurate values leading them to be erroneously selected at test time. Integrating the must-play at test time as well would be one way to investigate this theory. It is also conceivable, though perhaps less likely that the addition of solver information itself could hurt performance. If the solver values are too far away from those learned by one step backup the learner may have difficulty actually working out the full strategy that allows it to find the wins indicated by the solver. The mixed information could pull the learner in two different directions so to speak and make learning more difficult. More testing is needed to make any reasonable conclusions here.
 
 \section*{Results}
-Data for each training run is plotted in the figures \ref{fig:Q}, \ref{fig:exp}, \ref{fig:count} and \ref{fig:solver} below and discussed in the captions. Some testing data against a stochastic version of wolve is plotted in figures \ref{fig:wolve_temp} and \ref{fig:wolve_learning}.
+For most tests on the 7x7 board we use an architecture with 9 convolutional layers with 128 filters per layer, the bottom layer uses diameter 5 hexagonal filters, the next 8 use diameter 3 and the final layer is a 1x1 convolution. In cases with more than one network output (e.g. exploration value and regular value) all but the last 3 layers were shared. In testing on 5x5 for variance reduction learning a smaller but similar architecture was used with only with only 6 layers and 32 filters per layer. rmsprop is used as the optimization method in all tests. Data for each training run is plotted in the figures \ref{fig:Q}, \ref{fig:exp}, \ref{fig:count} and \ref{fig:solver} below and discussed in the captions. Some testing data against a stochastic version of wolve is plotted in figures \ref{fig:wolve_temp} and \ref{fig:wolve_learning}.
 \begin{figure}[!ht]
 \centering
 \begin{subfigure}[t]{.45\textwidth}
@@ -230,10 +229,10 @@ We did not succeed in demonstrating any clear improvement over the baseline of o
 \end{itemize}
 
 \begin{thebibliography}{plain}
-\bibitem{psuedocounts}
-Bellemare, Marc, et al. "Unifying count-based exploration and intrinsic motivation." \textit{Advances in Neural Information Processing Systems}. 2016.
+\bibitem{pseudocounts}
+Bellemare, Marc, et al. ``Unifying count-based exploration and intrinsic motivation.'' \textit{Advances in Neural Information Processing Systems}. 2016.
 \bibitem{SCTS}
-Talvitie, Erik, and FANDM EDU. "Skip context tree switching." (2014).
+Talvitie, Erik, and FANDM EDU. ``Skip context tree switching.'' (2014).
 \bibitem{SCTS_code}
 https://github.com/mgbellemare/SkipCTS
 \end{thebibliography}
