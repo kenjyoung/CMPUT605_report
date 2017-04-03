@@ -4,11 +4,12 @@
 \usepackage{fancyhdr}
 \usepackage{amssymb}
 \usepackage{amsmath}
+\usepackage{graphicx,subcaption} 
 \usepackage{mathtools}
 \usepackage{enumerate}
 \usepackage{xspace}
 \usepackage{txfonts}
-\usepackage{biblatex}
+\usepackage[citestyle=numeric]{biblatex}
 \begin{document}
 \begin{center}
 {\Large \textbf{CMPUT 605: Exploring Methods for Guiding Exploration in Learning to Play Hex}}
@@ -57,24 +58,157 @@ And we can define an "exploration greedy action selection" by noting that our go
 $$A_t= \text{argmax}_A\prod_{A'\neq A}(1-Q(S_t,A))^2Q_{exp}(S_t,A)$$
 During training the idea was to select actions using an epsilon greedy version of this metric while simultaneously updating both the $Q$ and $Q_{exp}$ networks which would share some number of lower layers. 
 
-This was attempted, however the joint distribution based update rule for $Q$ was not found to be feasible for learning on reasonable sized boards and hence there was no real opportunity to even test the $Q_{exp}$ network, which relies on $Q$.  Testing on 5x5 showed that the backup method could learn to some degree as shown in figure \cite{5x5_scores}. However even on 5x5 it was still qualitatively outperformed by ordinary Q-Learning and performance degraded very rapidly when scaling to larger boards. For these reasons we did not bother to proceed with more rigorous testing of this method at this time. The reason for the failure appears to be simply that the method gets quickly lost in noise, and on larger boards more moves means there is far more noise to get lost in. The backup rule is essentially very pessimistic because if there are a large number of moves with even a small winning chance in the next state it will conclude that a loss is likely because the opponent has so many possible wins. This issue could potentially be remedied with more sophisticated statistical techniques and may be worth examining further in the future.
-%insert figure 1 here 
+This was attempted, however the joint distribution based update rule for $Q$ was not found to be feasible for learning on reasonable sized boards and hence there was no real opportunity to even test the $Q_{exp}$ network, which relies on $Q$.  Testing on 5x5 showed that the backup method could learn to some degree as shown in figure \cite{5x5}. However even on 5x5 it was still qualitatively outperformed by ordinary Q-Learning and performance degraded very rapidly when scaling to larger boards. For these reasons we did not bother to proceed with more rigorous testing of this method at this time. The reason for the failure appears to be simply that the method gets quickly lost in noise, and on larger boards more moves means there is far more noise to get lost in. The backup rule is essentially very pessimistic because if there are a large number of moves with even a small winning chance in the next state it will conclude that a loss is likely because the opponent has so many possible wins. This issue could potentially be remedied with more sophisticated statistical techniques and may be worth examining further in the future.
+\begin{figure}[!ht]
+\centering
+\begin{subfigure}[t]{.45\textwidth}
+  \centering
+      \includegraphics[width=1\textwidth]{pics/5x5_hex_opening.png}
+  \caption{Scores for the 5x5 opening board learned using joint distribution backup. The scores close to 1 are in fact the only winning moves.}
+  \label{fig:5x5_1}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{.45\textwidth}
+  \centering
+      \includegraphics[width=1\textwidth]{pics/5x5_hex_2_moves.png}
+  \caption{2 moves in, scores are still reasonable.}
+  \label{fig:5x5_2}
+\end{subfigure}
+\caption{Expamples of 5x5 hexs scores learned by joint distribution backup rule. It scales very poorly to larger boards, but here it is adequate. Note, values  apparently greater than 1 are actually near 0 but the exponent was truncated.}
+\label{fig:5x5}
+\end{figure}
 
 
 \section*{Pseudocount Exploration}
+We also experimented with a second method for guiding exploration in Hex called pseudocount exploration, as highlighted in \cite{pseudocounts}. This method requires a learned model of probability for each experienced state which satisfies certain constraints outlined in \cite{pseudocounts}. Here we closely follow \cite{pseudocounts} and make use of the same Skip Context Tree Switching \cite{SCTS} model used there, in particular we make use of the python code available at \cite{SCTS_code}. This probability model is used to defined a "pseudocount" by analogy with the ordinary notion of count, which is itself associated with the empirical probabilities (i.e. visitation count for state s over total visitation count for all states).
 
+We will now briefly discuss the notion of pseudocount and its motivation. Suppose we postulate (by analogy with ordinary count and total for the empirical distribution) for some arbitrary state probability model the existence of an associated pseudocount $N(x)$ and pseudocount total $n$. Note that for the empirical distribution the probabilities before and after visiting a state (say $p$ and $p'$) are related by:
+$$p(x)=\frac{N(x)}{n},\ \ p'(x)=\frac{N(x)+1}{n+1}$$
+Taking this as a defining property we can then solve for N(x) for an arbitrary probability distribution in terms of how the distribution is effected by the observation of state x.
+$$N(x)=\frac{p(x)(1-p'(x))}{p'(x)-p(x)}$$
+This pseudocount can then be used to give an added reward bonus for exploring less visited states. In \cite{pseudocounts} they use $\frac{\beta}{\sqrt{N(x)}}$ to generate the reward bonus for each state. In that work this reward bonus is simply added to the ordinary reward for each state and training proceeds by ordinary Q learning. In our case we had to modify this a bit because the game is adversarial, we require the value to be negated on each time-step to generate the opponent value, however we do not wish to negate the reward bonus. To allow us to do this we factor the value function into a true value and exploration value with updates done as follows:
+$$Q(S_t,A_t) \leftarrow R(t) - Q(S_{t+1}, \text{argmax}_A(Q(S_{t+1}, A)+Q_{exp}(S_{t+1},A)))$$
+$$Q_{exp}(S_t,A_t) \leftarrow R_{exp}(t) - Q(S_{t+1}, \text{argmax}_A(Q(S_{t+1}, A)+Q_{exp}(S_{t+1},A)))$$
+Where $R(t)$ is the true reward, in this case simply win-loss, and $R_{exp}(t)=\frac{\beta}{\sqrt{N(x)}}$ is the exploration bonus. The networks for these two functions share all but the top few layers. We found $\beta=0.0025$ appeared to give a reasonable reward bonus in this case, we also found it necessary to restrict the action bonus to $(0,1)$ using a sigmoid at the output and apply a discount factor of $\gamma=0.95$ to prevent the exploration value from blowing up due to maximization over the large number of available actions.
+
+This exploration method was primarily tested on the 7x7 board and did not yield any clear improvement over 100,000 training episodes. One possible reason is that the pseudo-count in its present form does a poor job of capturing the distribution of Hex states and so the pseudo-count really just serves to blur the values and slow learning. To give an example: one place pseudo-count exploration was shown to do particularly well was Montezuma's revenge which consists of a series of puzzle rooms with very sparse reward. The independent distinct rooms found in this game (and games like it) seem to provide a strong factored signal from the pseudo-count bonus reward. If a room has not been explored much, entering it, and remaining in it, will lead to large pseudo-count reward. If a room has been highly explored no such reward will be available. By contrast Hex has no such factored structure, each move results in a slight change to the state and thus the pseudo-counts will be highly diffuse and may not provide much of a meaningful signal. Perhaps what is needed to improve on this is a pseudo-count method which somehow incorporates meaningful generalization, rather than relying on a handcrafted probability model that works only under certain circumstances.
 
 \section*{Integrating a Hex solver with the Learning Process}
+This was not so much an exploration method, but another technique attempted to improve the learning of the network via providing additional information. Specifically the solver from benzene was integrated into the learner and used to limit move selection to the must-play region, as well as to find wins early and use the true value rather than 1-step Q-learning updates where possible. 
+
+The must-play information was used simply by calling get-must-play in the solver before each move and choosing the highest value move over the must-play only whenever it was non-empty. When a random move was chosen (10\% chance currently) the learner could still play outside the must-play, this prevents overgeneralization to states outside the must-play, which if never tested may be learned to be similar to states within, which in general will be a very poor assumption. 
+
+The solver information was more difficult to use because we did not want the learner to have to wait around for the solver to finish before proceeding on each move. In the end an asynchronous solution was used. The solver maintains a queue of moves made by the learner and is called on each move for a maximum time (currently set to 0.5s) while the learner proceeds. If the solver successfully solves a position or times out it checks to see if the queue remains under some threshold size (currently set to 50) if it does it will move on to solve the next position. If the queue grows above the maximum the solver will stop solving and simply play moves until the queue size is sufficiently reduced. Whenever a move is solved the solver modifies a value in the replay memory to indicate this and the learner uses this information to backup the true value rather than the one step Q-update whenever this memory is present in a future batch. 
+
+This method was also tested on the 7x7 board and surprisingly also did not yield any clear improvement over 100,000 training episodes. Since both the must play and solver were integrated and tested together it is currently hard to say whether each of them may have been more effective individually. It is conceivable that integrating the must-play could have hurt performance since the pruned moves would end up being rarely played and may therefore have very inaccurate values leading them to be erroneously selected at test time. Integrating the must-play at test time as well would be one way to investigate this theory. It is also conceivable, though perhaps less likely that the addition of solver information itself could hurt performance. If the solver values are too far away from those learned by one step backup the learner may have difficulty actually working out the full strategy that allows it to find the wins indicated by the solver. The mixed information could pull the learner in two different directions so to speak and make learning more difficult. More testing is needed to make any reasonable conclusions here.
 
 \section*{Results}
+\begin{figure}[!ht]
+\centering
+\begin{subfigure}[t]{.45\textwidth}
+  \centering
+      \includegraphics[width=1\textwidth]{pics/7x7_Q_Pw_cost.png}
+  \caption{Scores for the 5x5 opening board learned using joint distribution backup. The scores close to 1 are in fact the only winning moves.}
+  \label{fig:5x5_1}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{.45\textwidth}
+  \centering
+      \includegraphics[width=1\textwidth]{pics/7x7_Q_Pw_var.png}
+  \caption{2 moves in, scores are still reasonable.}
+  \label{fig:5x5_2}
+\end{subfigure}
+\caption{Expamples of 5x5 hexs scores learned by joint distribution backup rule. It scales very poorly to larger boards, but here it is adequate. Note, values  apparently greater than 1 are actually near 0 but the exponent was truncated.}
+\label{fig:5x5}
+\end{figure}
+
+\begin{figure}[!ht]
+\centering
+\begin{subfigure}[t]{.45\textwidth}
+  \centering
+      \includegraphics[width=1\textwidth]{pics/5x5_exp_Pw_cost.png}
+  \caption{Scores for the 5x5 opening board learned using joint distribution backup. The scores close to 1 are in fact the only winning moves.}
+  \label{fig:5x5_1}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{.45\textwidth}
+  \centering
+      \includegraphics[width=1\textwidth]{pics/5x5_exp_Pw_var.png}
+  \caption{2 moves in, scores are still reasonable.}
+  \label{fig:5x5_2}
+\end{subfigure}\vfill
+\begin{subfigure}[t]{.45\textwidth}
+  \centering
+      \includegraphics[width=1\textwidth]{pics/5x5_exp_Qsigma.png}
+  \caption{Scores for the 5x5 opening board learned using joint distribution backup. The scores close to 1 are in fact the only winning moves.}
+  \label{fig:5x5_1}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{.45\textwidth}
+  \centering
+      \includegraphics[width=1\textwidth]{pics/5x5_exp_Qsigma_cost.png}
+  \caption{2 moves in, scores are still reasonable.}
+  \label{fig:5x5_2}
+\end{subfigure}
+\caption{Expamples of 5x5 hexs scores learned by joint distribution backup rule. It scales very poorly to larger boards, but here it is adequate. Note, values  apparently greater than 1 are actually near 0 but the exponent was truncated.}
+\label{fig:5x5}
+\end{figure}
+
+\begin{figure}[!ht]
+\centering
+\begin{subfigure}[t]{.45\textwidth}
+  \centering
+      \includegraphics[width=1\textwidth]{pics/7x7_count_Pw_cost.png}
+  \caption{Scores for the 5x5 opening board learned using joint distribution backup. The scores close to 1 are in fact the only winning moves.}
+  \label{fig:5x5_1}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{.45\textwidth}
+  \centering
+      \includegraphics[width=1\textwidth]{pics/7x7_count_Pw_var.png}
+  \caption{2 moves in, scores are still reasonable.}
+  \label{fig:5x5_2}
+\end{subfigure}\vfill
+\begin{subfigure}[t]{.45\textwidth}
+  \centering
+      \includegraphics[width=1\textwidth]{pics/7x7_count_exp_score.png}
+  \caption{Scores for the 5x5 opening board learned using joint distribution backup. The scores close to 1 are in fact the only winning moves.}
+  \label{fig:5x5_1}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{.45\textwidth}
+  \centering
+      \includegraphics[width=1\textwidth]{pics/7x7_count_exp_cost.png}
+  \caption{2 moves in, scores are still reasonable.}
+  \label{fig:5x5_2}
+\end{subfigure}\vfill
+\begin{subfigure}[t]{.45\textwidth}
+  \centering
+      \includegraphics[width=1\textwidth]{pics/7x7_count_count.png}
+  \caption{Scores for the 5x5 opening board learned using joint distribution backup. The scores close to 1 are in fact the only winning moves.}
+  \label{fig:5x5_1}
+\end{subfigure}\hfill
+\caption{Expamples of 5x5 hexs scores learned by joint distribution backup rule. It scales very poorly to larger boards, but here it is adequate. Note, values  apparently greater than 1 are actually near 0 but the exponent was truncated.}
+\label{fig:5x5}
+\end{figure}
+
+\begin{figure}[!ht]
+\centering
+\includegraphics[width=1\textwidth]{pics/wolve_temp.png}
+\caption{winrate v.s. temperature of stochastic version of wolve for normal Q-learning (red) and pseudocount Q-learning (blue).}
+\end{figure}
+
+\begin{figure}[!ht]
+\centering
+\includegraphics[width=1\textwidth]{pics/wolve_learning_curves.png}
+\caption{winrate v.s. number of training episodes for normal Q-learning (green) and pseudocount Q-learning (blue) and with solver integration (red).}
+\end{figure}
 
 \section*{Conclusion}
 
 \section*{Future Work}
 
-\begin{thebibliography}{9}
+\begin{thebibliography}{plain}
 \bibitem{psuedocounts}
 Bellemare, Marc, et al. "Unifying count-based exploration and intrinsic motivation." \textit{Advances in Neural Information Processing Systems}. 2016.
+\bibitem{SCTS}
+Talvitie, Erik, and FANDM EDU. "Skip context tree switching." (2014).
+\bibitem{SCTS_code}
+https://github.com/mgbellemare/SkipCTS
 \end{thebibliography}
 
 
