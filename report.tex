@@ -102,22 +102,23 @@ The solver information was more difficult to use because we did not want the lea
 This method was also tested on the 7x7 board and surprisingly also did not yield any clear improvement over 100,000 training episodes. Since both the must play and solver were integrated and tested together it is currently hard to say whether each of them may have been more effective individually. It is conceivable that integrating the must-play could have hurt performance since the pruned moves would end up being rarely played and may therefore have very inaccurate values leading them to be erroneously selected at test time. Integrating the must-play at test time as well would be one way to investigate this theory. It is also conceivable, though perhaps less likely that the addition of solver information itself could hurt performance. If the solver values are too far away from those learned by one step backup the learner may have difficulty actually working out the full strategy that allows it to find the wins indicated by the solver. The mixed information could pull the learner in two different directions so to speak and make learning more difficult. More testing is needed to make any reasonable conclusions here.
 
 \section*{Results}
+Data for each training run is plotted in the figures \ref{fig:Q}, \ref{fig:exp}, \ref{fig:count} and \ref{fig:solver} below and discussed in the captions. Some testing data against a stochastic version of wolve is plotted in figures \ref{fig:wolve_temp} and \ref{fig:wolve_learning}.
 \begin{figure}[!ht]
 \centering
 \begin{subfigure}[t]{.45\textwidth}
   \centering
       \includegraphics[width=1\textwidth]{pics/7x7_Q_Pw_cost.png}
-  \caption{Scores for the 5x5 opening board learned using joint distribution backup. The scores close to 1 are in fact the only winning moves.}
-  \label{fig:5x5_1}
+  \caption{Moving average of average update cost over training episodes for ordinary Q-learning.}
+  \label{fig:Q_cost}
 \end{subfigure}\hfill
 \begin{subfigure}[t]{.45\textwidth}
   \centering
       \includegraphics[width=1\textwidth]{pics/7x7_Q_Pw_var.png}
-  \caption{2 moves in, scores are still reasonable.}
-  \label{fig:5x5_2}
+  \caption{Moving average of win probability variance ($Q(1-Q)$ averaged over all board positions) over training episodes for ordinary Q-learning.}
+  \label{fig:Q_var}
 \end{subfigure}
-\caption{Expamples of 5x5 hexs scores learned by joint distribution backup rule. It scales very poorly to larger boards, but here it is adequate. Note, values  apparently greater than 1 are actually near 0 but the exponent was truncated.}
-\label{fig:5x5}
+\caption{Training time data for ordinary Q-learning on 7x7 board.}
+\label{fig:Q}
 \end{figure}
 
 \begin{figure}[!ht]
@@ -125,29 +126,29 @@ This method was also tested on the 7x7 board and surprisingly also did not yield
 \begin{subfigure}[t]{.45\textwidth}
   \centering
       \includegraphics[width=1\textwidth]{pics/5x5_exp_Pw_cost.png}
-  \caption{Scores for the 5x5 opening board learned using joint distribution backup. The scores close to 1 are in fact the only winning moves.}
-  \label{fig:5x5_1}
+  \caption{Moving average of average update cost for win probability network over training episodes for variance reduction network.}
+  \label{fig:exp_Pw_cost}
 \end{subfigure}\hfill
 \begin{subfigure}[t]{.45\textwidth}
   \centering
       \includegraphics[width=1\textwidth]{pics/5x5_exp_Pw_var.png}
-  \caption{2 moves in, scores are still reasonable.}
-  \label{fig:5x5_2}
+  \caption{Moving average of win probability variance ($Q(1-Q)$ averaged over all board positions) over training episodes for variance reduction network.}
+  \label{fig:exp_Pw_var}
 \end{subfigure}\vfill
 \begin{subfigure}[t]{.45\textwidth}
   \centering
       \includegraphics[width=1\textwidth]{pics/5x5_exp_Qsigma.png}
-  \caption{Scores for the 5x5 opening board learned using joint distribution backup. The scores close to 1 are in fact the only winning moves.}
-  \label{fig:5x5_1}
+  \caption{Moving average of average exploration score over training episodes for variance reduction network.}
+  \label{fig:exp_Qsigma}
 \end{subfigure}\hfill
 \begin{subfigure}[t]{.45\textwidth}
   \centering
       \includegraphics[width=1\textwidth]{pics/5x5_exp_Qsigma_cost.png}
-  \caption{2 moves in, scores are still reasonable.}
-  \label{fig:5x5_2}
+  \caption{Moving average of average update cost for exploration network over training episodes for variance reduction network.}
+  \label{fig:exp_Qsigma_cost}
 \end{subfigure}
-\caption{Expamples of 5x5 hexs scores learned by joint distribution backup rule. It scales very poorly to larger boards, but here it is adequate. Note, values  apparently greater than 1 are actually near 0 but the exponent was truncated.}
-\label{fig:5x5}
+\caption{Training time data for variance reduction learning on 5x5 board, note that this data is not directly comparable to others because due to the poor scaling of the current joint distribution backup method it was run on a smaller board.}
+\label{fig:exp}
 \end{figure}
 
 \begin{figure}[!ht]
@@ -155,52 +156,78 @@ This method was also tested on the 7x7 board and surprisingly also did not yield
 \begin{subfigure}[t]{.45\textwidth}
   \centering
       \includegraphics[width=1\textwidth]{pics/7x7_count_Pw_cost.png}
-  \caption{Scores for the 5x5 opening board learned using joint distribution backup. The scores close to 1 are in fact the only winning moves.}
-  \label{fig:5x5_1}
+  \caption{Moving average of average update cost for win probability network over training episodes for pseudocount Q-learning.}
+  \label{fig:count_cost}
 \end{subfigure}\hfill
 \begin{subfigure}[t]{.45\textwidth}
   \centering
       \includegraphics[width=1\textwidth]{pics/7x7_count_Pw_var.png}
-  \caption{2 moves in, scores are still reasonable.}
-  \label{fig:5x5_2}
+  \caption{Moving average of win probability variance ($Q(1-Q)$ averaged over all board positions) over training episodes for pseudocount Q-learning.}
+  \label{fig:count_var}
 \end{subfigure}\vfill
 \begin{subfigure}[t]{.45\textwidth}
   \centering
       \includegraphics[width=1\textwidth]{pics/7x7_count_exp_score.png}
-  \caption{Scores for the 5x5 opening board learned using joint distribution backup. The scores close to 1 are in fact the only winning moves.}
-  \label{fig:5x5_1}
+  \caption{Moving average of average exploration score over training episodes for pseudocount Q-learning.}
+  \label{fig:count_exp}
 \end{subfigure}\hfill
 \begin{subfigure}[t]{.45\textwidth}
   \centering
       \includegraphics[width=1\textwidth]{pics/7x7_count_exp_cost.png}
-  \caption{2 moves in, scores are still reasonable.}
-  \label{fig:5x5_2}
+  \caption{Moving average of average update cost for exploration network over training episodes for pseudocount Q-learning.}
+  \label{fig:count_exp_cost}
 \end{subfigure}\vfill
 \begin{subfigure}[t]{.45\textwidth}
   \centering
       \includegraphics[width=1\textwidth]{pics/7x7_count_count.png}
-  \caption{Scores for the 5x5 opening board learned using joint distribution backup. The scores close to 1 are in fact the only winning moves.}
-  \label{fig:5x5_1}
+  \caption{Moving average of average pseudocount over time for pseudocount Q-learning.}
+  \label{fig:count_count}
 \end{subfigure}\hfill
-\caption{Expamples of 5x5 hexs scores learned by joint distribution backup rule. It scales very poorly to larger boards, but here it is adequate. Note, values  apparently greater than 1 are actually near 0 but the exponent was truncated.}
-\label{fig:5x5}
+\caption{Training time data for pseudocount Q-learning on 7x7 board. Note that count steadily increases (as would be expected) after a brief chaotic period at the start (probably due to the exploration score rapidly calibrating and learning to seek out areas of lower count. Exploration score and the associated cost both show rapid spikes separated by mostly flat periods, possibly indicating occasional discovery of new low count regions of the space. Win probability variance drops of very rapidly in the beginning around the same time count stabilizes, again this may indicate a rapid period of initial calibration for both networks.}
+\label{fig:count}
+\end{figure}
+
+\begin{figure}[!ht]
+\centering
+\begin{subfigure}[t]{.45\textwidth}
+  \centering
+      \includegraphics[width=1\textwidth]{pics/7x7_solver_Pw_cost.png}
+  \caption{Moving average of average update cost over training episodes for solver integrated Q-learning.}
+  \label{fig:solver_cost}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{.45\textwidth}
+  \centering
+      \includegraphics[width=1\textwidth]{pics/7x7_solver_Pw_var.png}
+  \caption{Moving average of win probability variance ($Q(1-Q)$ averaged over all board positions) over training episodes for solver integrated Q-learning.}
+  \label{fig:solver_var}
+\end{subfigure}
+\caption{Training time data for solver integrated Q-learning on 7x7 board. Note that win probability variance decreases faster compared to ordinary Q-learning, this may indicate some degree of sucessful integration of the additional available information, and/or be due to the more limited state space exploration caused by using the must-play. The associated cost remains higher than ordinary Q-learning in the end, possibly because the solver provides a number of deterministic updates which are on average larger than the one step backups.}
+\label{fig:solver}
 \end{figure}
 
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=1\textwidth]{pics/wolve_temp.png}
-\caption{winrate v.s. temperature of stochastic version of wolve for normal Q-learning (red) and pseudocount Q-learning (blue).}
+\caption{winrate against wolve v.s. temperature of stochastic version of wolve for normal Q-learning (red) and pseudocount Q-learning (blue).}
+\label{fig:wolve_temp}
 \end{figure}
 
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=1\textwidth]{pics/wolve_learning_curves.png}
-\caption{winrate v.s. number of training episodes for normal Q-learning (green) and pseudocount Q-learning (blue) and with solver integration (red).}
+\caption{winrate against 300 temperature wolve v.s. number of training episodes for normal Q-learning (green) and pseudocount Q-learning (blue) and with solver integration (red). Winrate is an average over all opening moves and each colour. Unfortunately ordinary Q-learning appears to be the fairly clear winner, followed by pseudocount based learning and lastly the solver integration. It is unclear how much of this difference can be attributed to random initialization, ideally more trials would be done, however they are obviously quite time consuming.}
+\label{fig:wolve_learning}
 \end{figure}
 
 \section*{Conclusion}
+We did not succeed in demonstrating any clear improvement over the baseline of ordinary Q-learning with any of the various methods tried. More work is needed to determine why this was the case and look into what can be done to fix it.
 
 \section*{Future Work}
+\begin{itemize}
+\item Perform more sound statistical (Possibly Bayesian) theoretical analysis to derive a more robust algorithm for joint distribution backup, which would hopefully allow testing of the variance reduction exploration method.
+\item Look into more robust Probability density models to possibly allow pseudocount based exploration methods to be effective in Hex.
+\item Further test the solver integration with various values of the parameters, and test must-play and early win detection separately to determine whether anything is gained.
+\end{itemize}
 
 \begin{thebibliography}{plain}
 \bibitem{psuedocounts}
